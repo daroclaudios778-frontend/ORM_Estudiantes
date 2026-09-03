@@ -6,6 +6,7 @@ Versión integrada con:
 - Alta, edición, búsqueda y eliminación lógica de alumnos
 - Registro de asistencia
 - Registro y consulta de notas
+- Alta, edición, búsqueda y eliminación lógica de cursos
 - SQLite3
 
 ## Ejecutar
@@ -26,7 +27,6 @@ Usuario inicial:
 - Contraseña: admin123
 
 ## Próximas etapas
-- Cursos y divisiones
 - Docentes
 - Materias
 - Reportes PDF/Excel

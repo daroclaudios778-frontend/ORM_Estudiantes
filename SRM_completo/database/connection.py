@@ -28,6 +28,16 @@ def initialize_database():
         activo INTEGER DEFAULT 1
     )""")
     cur.execute("""
+    CREATE TABLE IF NOT EXISTS cursos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nombre TEXT NOT NULL,
+        division TEXT NOT NULL,
+        turno TEXT NOT NULL,
+        anio INTEGER NOT NULL,
+        activo INTEGER DEFAULT 1,
+        UNIQUE(nombre, division, turno, anio)
+    )""")
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL UNIQUE,

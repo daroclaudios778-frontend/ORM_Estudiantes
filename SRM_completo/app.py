@@ -4,6 +4,7 @@ from services.auth_service import usuario_logueado, cerrar_sesion, iniciar_sesio
 from services.alumno_service import listar_alumnos, crear_alumno, actualizar_alumno, eliminar_alumno
 from services.asistencia_service import registrar_asistencia, listar_asistencia_hoy
 from services.nota_service import registrar_nota, listar_notas
+from services.curso_service import listar_cursos, crear_curso, actualizar_curso, eliminar_curso
 
 initialize_database()
 
@@ -56,7 +57,7 @@ def sidebar():
         ui.button("Alumnos", icon="school", on_click=lambda: ir("/alumnos")).props("flat").classes("w-full justify-start")
         ui.button("Asistencia", icon="event_available", on_click=lambda: ir("/asistencia")).props("flat").classes("w-full justify-start")
         ui.button("Notas", icon="grading", on_click=lambda: ir("/notas")).props("flat").classes("w-full justify-start")
-        ui.button("Cursos", icon="groups", on_click=lambda: ui.notify("Módulo de cursos: siguiente etapa")).props("flat").classes("w-full justify-start")
+        ui.button("Cursos", icon="groups", on_click=lambda: ir("/cursos")).props("flat").classes("w-full justify-start")
         ui.button("Docentes", icon="person", on_click=lambda: ui.notify("Módulo de docentes: siguiente etapa")).props("flat").classes("w-full justify-start")
 
         if es_admin():
@@ -100,7 +101,7 @@ def dashboard():
             stat_card("Asistencias hoy", presentes, "person", "Presentes")
             stat_card("Ausencias hoy", ausentes, "person_off", "Ausentes")
             stat_card("Promedio general", promedio, "school", "Notas cargadas")
-            stat_card("Cursos activos", 8, "class", "Base de ejemplo")
+            stat_card("Cursos activos", len(listar_cursos()), "class", "Cursos registrados")
 
         with ui.row().classes("w-full gap-4 items-stretch mt-4"):
             with ui.card().classes("flex-[2]"):
@@ -172,7 +173,7 @@ def alumnos_view():
             ui.space()
             ui.button("Nuevo alumno", icon="person_add", on_click=lambda: formulario_alumno(refrescar)).classes("bg-blue-600 text-white")
 
-        buscador = ui.input("Buscar por DNI, nombre o apellido", icon="search").classes("w-full mt-4")
+        buscador = ui.input("Buscar por DNI, nombre o apellido").classes("w-full mt-4")
         cont = ui.column().classes("w-full")
 
         def refrescar():
@@ -252,6 +253,72 @@ def notas_view():
                 ], rows=rows).classes("w-full")
         tabla()
 
+def formulario_curso(refrescar, curso=None):
+    with ui.dialog() as dialog:
+        with ui.card().classes("w-[520px]"):
+            ui.label("Editar curso" if curso else "Agregar nuevo curso").classes("text-2xl font-bold")
+            nombre = ui.input("Nombre", value=curso["nombre"] if curso else "").classes("w-full")
+            division = ui.input("División", value=curso["division"] if curso else "").classes("w-full")
+            with ui.row().classes("w-full"):
+                turno = ui.select(["Mañana", "Tarde", "Noche"], value=curso["turno"] if curso else "Mañana", label="Turno").classes("flex-1")
+                anio = ui.number("Año", value=curso["anio"] if curso else 1, min=1, max=7, step=1).classes("flex-1")
+
+            def guardar():
+                if not nombre.value or not division.value or anio.value is None:
+                    ui.notify("Nombre, división y año son obligatorios", type="warning")
+                    return
+                try:
+                    if curso:
+                        actualizar_curso(curso["id"], nombre.value, division.value, turno.value, int(anio.value))
+                    else:
+                        crear_curso(nombre.value, division.value, turno.value, int(anio.value))
+                    dialog.close()
+                    refrescar()
+                    ui.notify("Curso guardado correctamente", type="positive")
+                except Exception as e:
+                    ui.notify(f"Error: {e}", type="negative")
+
+            with ui.row().classes("justify-end w-full"):
+                ui.button("Cancelar", on_click=dialog.close).props("flat")
+                ui.button("Guardar curso", icon="save", on_click=guardar)
+    dialog.open()
+
+def cursos_view():
+    c = layout("Gestión de Cursos")
+    with c:
+        with ui.row().classes("w-full items-center"):
+            ui.label("Cursos").classes("text-3xl font-bold")
+            ui.space()
+            ui.button("Nuevo curso", icon="add", on_click=lambda: formulario_curso(refrescar)).classes("bg-blue-600 text-white")
+
+        buscador = ui.input("Buscar por nombre, división o turno").classes("w-full mt-4")
+        cont = ui.column().classes("w-full")
+
+        def refrescar():
+            cont.clear()
+            texto = (buscador.value or "").lower()
+            cursos = [curso for curso in listar_cursos() if texto in f'{curso["nombre"]} {curso["division"]} {curso["turno"]} {curso["anio"]}'.lower()]
+            with cont:
+                rows = [{"id": curso["id"], "Curso": curso["nombre"], "División": curso["division"], "Turno": curso["turno"], "Año": curso["anio"]} for curso in cursos]
+                ui.table(columns=[
+                    {"name": "Curso", "label": "Curso", "field": "Curso"},
+                    {"name": "División", "label": "División", "field": "División"},
+                    {"name": "Turno", "label": "Turno", "field": "Turno"},
+                    {"name": "Año", "label": "Año", "field": "Año"},
+                ], rows=rows).classes("w-full")
+                with ui.row().classes("gap-2 mt-2"):
+                    for curso in cursos:
+                        ui.button(f'Editar {curso["nombre"]} {curso["division"]}', icon="edit", on_click=lambda curso=curso: formulario_curso(refrescar, curso)).props("outline")
+                        ui.button(f'Eliminar {curso["nombre"]} {curso["division"]}', icon="delete", color="negative", on_click=lambda curso=curso: borrar(curso)).props("outline")
+
+        def borrar(curso):
+            eliminar_curso(curso["id"])
+            ui.notify("Curso eliminado", type="positive")
+            refrescar()
+
+        buscador.on_value_change(lambda e: refrescar())
+        refrescar()
+
 @ui.page("/login")
 def login_page():
     login_view()
@@ -271,5 +338,9 @@ def asistencia_page():
 @ui.page("/notas")
 def notas_page():
     if guard(): notas_view()
+
+@ui.page("/cursos")
+def cursos_page():
+    if guard(): cursos_view()
 
 ui.run(title="SRM - Sistema de Registro Escolar", port=8080, reload=False, storage_secret="srm-secret-2026")
